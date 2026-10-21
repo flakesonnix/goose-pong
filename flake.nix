@@ -9,21 +9,26 @@
 
   outputs = { self, nixpkgs, goose }@inputs: let
     pkgs = import nixpkgs { system = "x86_64-linux"; };
+    raylib = pkgs.raylib;
   in {
     checks."x86_64-linux".default = pkgs.runCommand "goose-pong" {
       src = ./.;
-      buildInputs = [ pkgs.cmake pkgs.gcc ];
+      buildInputs = [ pkgs.cmake pkgs.gcc raylib ];
     } ''
       export HOME=$(mktemp -d)
+      export NIX_CFLAGS_COMPILE="-I${raylib}/include"
+      export NIX_LDFLAGS="-L${raylib}/lib -lraylib"
       cp -r $src/* .
       # Build the Goose compiler from source (fetched as Flake input)
       cmake -B build -S ${goose}
       cmake --build build -j
-      # Build the Goose unit test (no raylib needed)
+      # Build the Goose programs (raylib linked via NIX_LDFLAGS)
+      ./build/goose build pong.goose
       ./build/goose build test_pong.goose
       mkdir -p $out/bin
+      cp pong $out/bin/
       cp test_pong $out/bin/
-      # Run tests
+      # Run unit tests
       ./test_pong
     '';
   };
