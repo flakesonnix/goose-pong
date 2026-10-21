@@ -19,14 +19,14 @@
       # Build the Goose compiler from source (fetched as Flake input)
       cmake -B build -S ${goose}
       cmake --build build -j
-      # Create a gcc wrapper that links raylib (needed because Goose compiler
-      # calls gcc directly without Nix wrapper environment)
-      cat > wrapper-gcc << EOF
+      # Create a cc wrapper that links raylib (needed because Goose compiler
+      # calls cc directly without Nix wrapper environment)
+      cat > cc << EOF
 #!/bin/bash
-exec ${pkgs.gcc}/bin/gcc -L${pkgs.raylib}/lib -lraylib "\$@"
+exec ${pkgs.gcc}/bin/cc -L${pkgs.raylib}/lib -lraylib "\$@"
 EOF
-      chmod +x wrapper-gcc
-      export CC=$PWD/wrapper-gcc
+      chmod +x cc
+      export PATH=$PWD:$PATH
       # Build the Goose programs
       ./build/goose build pong.goose
       ./build/goose build test_pong.goose
