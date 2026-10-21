@@ -16,15 +16,25 @@
     } ''
       export HOME=$(mktemp -d)
       cp -r $src/* .
-      # Build the Goose compiler from source (fetched as Flake input)
       cmake -B build -S ${goose}
       cmake --build build -j
-      # Build the Goose unit test (no raylib needed)
       ./build/goose build test_pong.goose
       mkdir -p $out/bin
       cp test_pong $out/bin/
-      # Run unit tests
       ./test_pong
+    '';
+
+    packages.x86_64-linux.default = pkgs.runCommand "goose-pong-bin" {
+      src = ./.;
+      buildInputs = [ pkgs.cmake pkgs.gcc ];
+    } ''
+      export HOME=$(mktemp -d)
+      cp -r $src/* .
+      cmake -B build -S ${goose}
+      cmake --build build -j
+      ./build/goose build test_pong.goose
+      mkdir -p $out/bin
+      cp test_pong $out/bin/
     '';
   };
 }
