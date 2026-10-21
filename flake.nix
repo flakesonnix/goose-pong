@@ -15,6 +15,8 @@
       buildInputs = [ pkgs.cmake pkgs.gcc pkgs.raylib ];
     } ''
       export HOME=$(mktemp -d)
+      export C_INCLUDE_PATH=${pkgs.raylib}/include
+      export LIBRARY_PATH=${pkgs.raylib}/lib
       cp -r $src/* .
       # Build the Goose compiler from source (fetched as Flake input)
       cmake -B build -S ${goose}
