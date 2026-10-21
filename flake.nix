@@ -19,7 +19,7 @@
         echo "  ./goose/build/goose build pong.goose && ./pong"
         echo ""
         echo "Source files present:"
-        ls -la pong.goose test_pong.goose
+        ls -la pong.goose test_pong.goose pong.build
       '';
       installPhase = ''
         true

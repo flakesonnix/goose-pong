@@ -1,266 +1,176 @@
-// pong.goose — Classic Pong game in the terminal (like DOS/Atari)
-// Two paddles, one ball, score. Keyboard controlled.
+// pong.goose — Klassisches Pong-Spiel mit raylib (grafisch, wie DOS/Atari)
+// Zwei Schläger, ein Ball, Punktestand, KI-Gegner.
+// Benötigt installiertes raylib (libraylib + Header) zum Bauen und Ausführen.
+//
+// Build:
+//   goose build pong.goose   # braucht c_libs = ["raylib"] in pong.build
+//   ./pong
+//
+// Ohne installiertes raylib: `goose check pong.goose` typenprüft trotzdem.
 
-import std;
-import os;
+const SCREEN_WIDTH: i32 = 800;
+const SCREEN_HEIGHT: i32 = 450;
+const TARGET_FPS: i32 = 60;
 
-// ---- Playfield -----------------------------------------------------------
+const KEY_W: i32 = 87;
+const KEY_S: i32 = 83;
+const KEY_UP: i32 = 265;
+const KEY_DOWN: i32 = 264;
+const KEY_ESCAPE: i32 = 256;
+const KEY_Q: i32 = 81;
 
-let WIDTH: i64 = 50;
-let HEIGHT: i64 = 20;
-let PADDLE_H: i64 = 5;      // paddle height
-let WIN_SCORE: i64 = 5;     // points to win
+const BLACK = Color { 0, 0, 0, 255 };
+const WHITE = Color { 255, 255, 255, 255 };
+const RAYWHITE = Color { 245, 245, 245, 255 };
+const LIGHTGRAY = Color { 200, 200, 200, 255 };
 
-// ---- Game state ----------------------------------------------------------
+struct Vector2 { x: f32, y: f32 }
+struct Color { r: u8, g: u8, b: u8, a: u8 }
+struct Rectangle { x: f32, y: f32, width: f32, height: f32 }
+struct Camera2D { offset: Vector2, target: Vector2, rotation: f32, zoom: f32 }
 
-var ball_x: i64 = WIDTH / 2;
-var ball_y: i64 = HEIGHT / 2;
-var ball_dx: i64 = 1;
-var ball_dy: i64 = 1;
-
-var left_y: i64 = HEIGHT / 2 - PADDLE_H / 2;
-var right_y: i64 = HEIGHT / 2 - PADDLE_H / 2;
-
-var left_score: i64 = 0;
-var right_score: i64 = 0;
-
-var running: bool = true;
-
-// ---- Random number for ball direction ------------------------------------
-
-var rng_state: u64 = 12345;
-
-fn rand_next() -> u64 {
-    rng_state = rng_state + 11400714819323198485;
-    var z = rng_state;
-    z = (z ^ (z >> 30)) * 13787848793156543929;
-    z = (z ^ (z >> 27)) * 10723151780598845931;
-    return z ^ (z >> 31);
-}
-
-fn rand_range(lo: i64, hi: i64) -> i64 {
-    lo + (rand_next() % (hi - lo) as u64) as i64
-}
-
-// ---- Draw screen ---------------------------------------------------------
-
-fn clear_screen() {
-    print("\x1b[2J\x1b[H");
-}
-
-fn draw() {
-    // Top border
-    var row: u8[>..] = [];
-    for x in WIDTH + 2 { row.push('#' as u8); }
-    print(row);
-
-    // Playfield rows
-    for y in HEIGHT {
-        row = [];
-        row.push('#' as u8);  // left border
-        for x in WIDTH {
-            // Ball?
-            if x == ball_x && y == ball_y {
-                row.push('O' as u8);
-            }
-            // Left paddle?
-            else if x == 1 && y >= left_y && y < left_y + PADDLE_H {
-                row.push('|' as u8);
-            }
-            // Right paddle?
-            else if x == WIDTH - 2 && y >= right_y && y < right_y + PADDLE_H {
-                row.push('|' as u8);
-            }
-            // Center line (dotted)
-            else if x == WIDTH / 2 && y % 2 == 0 {
-                row.push(':' as u8);
-            }
-            else {
-                row.push(' ' as u8);
-            }
-        }
-        row.push('#' as u8);  // right border
-        print(row);
-    }
-
-    // Bottom border
-    row = [];
-    for x in WIDTH + 2 { row.push('#' as u8); }
-    print(row);
-
-    // Score
-    print("  ", left_score, "  :  ", right_score);
-    print("  Controls: w/s = left paddle, o/l = right paddle, q = Quit");
-}
-
-// ---- Move ball -----------------------------------------------------------
-
-fn move_ball() {
-    ball_x = ball_x + ball_dx;
-    ball_y = ball_y + ball_dy;
-
-    // Top/bottom wall bounce
-    if ball_y <= 0 {
-        ball_y = 0;
-        ball_dy = -ball_dy;
-    }
-    if ball_y >= HEIGHT - 1 {
-        ball_y = HEIGHT - 1;
-        ball_dy = -ball_dy;
-    }
-
-    // Hit left paddle
-    if ball_x == 2 && ball_y >= left_y && ball_y < left_y + PADDLE_H {
-        ball_dx = -ball_dx;
-        ball_x = 2;
-        // slight random Y variation
-        let r = rand_range(-1, 2);
-        ball_dy = ball_dy + r;
-        if ball_dy == 0 { ball_dy = 1; }
-    }
-
-    // Hit right paddle
-    if ball_x == WIDTH - 3 && ball_y >= right_y && ball_y < right_y + PADDLE_H {
-        ball_dx = -ball_dx;
-        ball_x = WIDTH - 3;
-        let r = rand_range(-1, 2);
-        ball_dy = ball_dy + r;
-        if ball_dy == 0 { ball_dy = 1; }
-    }
-
-    // Goal left (right player scores)
-    if ball_x <= 0 {
-        right_score = right_score + 1;
-        reset_ball();
-    }
-
-    // Goal right (left player scores)
-    if ball_x >= WIDTH - 1 {
-        left_score = left_score + 1;
-        reset_ball();
-    }
-}
-
-fn reset_ball() {
-    ball_x = WIDTH / 2;
-    ball_y = HEIGHT / 2;
-    ball_dx = if rand_range(0, 2) == 0 { -1 } else { 1 };
-    ball_dy = if rand_range(0, 2) == 0 { -1 } else { 1 };
-    sleep(0.5);
-}
-
-// ---- Move paddles --------------------------------------------------------
-
-fn move_left_paddle(dir: i64) {
-    left_y = left_y + dir;
-    if left_y < 0 { left_y = 0; }
-    if left_y + PADDLE_H > HEIGHT { left_y = HEIGHT - PADDLE_H; }
-}
-
-fn move_right_paddle(dir: i64) {
-    right_y = right_y + dir;
-    if right_y < 0 { right_y = 0; }
-    if right_y + PADDLE_H > HEIGHT { right_y = HEIGHT - PADDLE_H; }
-}
-
-// ---- Computer opponent (left paddle follows ball) ------------------------
-
-fn ai_move_left() {
-    let paddle_center = left_y + PADDLE_H / 2;
-    if ball_y < paddle_center - 1 {
-        move_left_paddle(-1);
-    } else if ball_y > paddle_center + 1 {
-        move_left_paddle(1);
-    }
-}
-
-// ---- Read input ----------------------------------------------------------
-
-fn process_input(input: u8[:]) {
-    for c in input {
-        if c == 'w' { move_left_paddle(-1); }
-        else if c == 's' { move_left_paddle(1); }
-        else if c == 'o' { move_right_paddle(-1); }
-        else if c == 'l' { move_right_paddle(1); }
-        else if c == 'q' { running = false; }
-    }
-}
-
-// ---- Start screen --------------------------------------------------------
-
-fn show_start() {
-    clear_screen();
-    print("  ==========================================");
-    print("             P O N G   (Goose)             ");
-    print("  ==========================================");
-    print("");
-    print("  Classic Pong game in the terminal");
-    print("");
-    print("  Controls:");
-    print("    w/s  = left paddle up/down");
-    print("    o/l  = right paddle up/down");
-    print("    q    = quit game");
-    print("");
-    print("  The computer controls the left paddle.");
-    print("  You play the right paddle.");
-    print("");
-    print("  First to 5 points wins.");
-    print("");
-    print("  Press Enter to start...");
-    var dummy: u8[>..] = [];
-    read_line(dummy);
-}
-
-// ---- Game over -----------------------------------------------------------
-
-fn show_game_over(winner: u8[:]) {
-    clear_screen();
-    print("  ==========================================");
-    print("           G A M E   O V E R               ");
-    print("  ==========================================");
-    print("");
-    print("  ", winner, " wins!");
-    print("");
-    print("  Final score: ", left_score, " : ", right_score);
-    print("");
-    print("  Press Enter to exit...");
-    var dummy: u8[>..] = [];
-    read_line(dummy);
-}
-
-// ---- Main game loop ------------------------------------------------------
+extern fn InitWindow(width: i32, height: i32, title: const u8[:]);
+extern fn WindowShouldClose() -> bool;
+extern fn CloseWindow();
+extern fn SetTargetFPS(fps: i32);
+extern fn BeginDrawing();
+extern fn EndDrawing();
+extern fn ClearBackground(color: Color);
+extern fn DrawLine(startPosX: i32, startPosY: i32, endPosX: i32, endPosY: i32, color: Color);
+extern fn DrawRectangleRec(rec: Rectangle, color: Color);
+extern fn DrawRectangleLinesEx(rec: Rectangle, lineThick: i32, color: Color);
+extern fn DrawCircle(centerX: i32, centerY: i32, radius: f32, color: Color);
+extern fn DrawText(text: const u8[:], posX: i32, posY: i32, fontSize: i32, color: Color);
+extern fn MeasureText(text: const u8[:], fontSize: i32) -> i32;
+extern fn IsKeyDown(key: i32) -> bool;
+extern fn IsKeyPressed(key: i32) -> bool;
 
 fn main() {
-    show_start();
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Pong (Goose + raylib)");
 
-    while running {
-        // Move ball
-        move_ball();
+    // Spieler (rechts) und KI (links) Schläger
+    let paddle_w: f32 = 15.0;
+    let paddle_h: f32 = 80.0;
+    let paddle_speed: f32 = 5.0;
 
-        // Computer opponent
-        ai_move_left();
+    var left_x: f32 = 30.0;
+    var left_y: f32 = (SCREEN_HEIGHT as f32 - paddle_h) / 2.0;
+    var left_score: i32 = 0;
 
-        // Draw
-        clear_screen();
-        draw();
+    var right_x: f32 = (SCREEN_WIDTH as f32) - 30.0 - paddle_w;
+    var right_y: f32 = (SCREEN_HEIGHT as f32 - paddle_h) / 2.0;
+    var right_score: i32 = 0;
 
-        // Check if someone won
-        if left_score >= WIN_SCORE {
-            running = false;
-            show_game_over("Left player (computer)");
-            break;
+    // Ball
+    var ball_x: f32 = (SCREEN_WIDTH as f32) / 2.0;
+    var ball_y: f32 = (SCREEN_HEIGHT as f32) / 2.0;
+    var ball_r: f32 = 8.0;
+    var ball_dx: f32 = 4.0;
+    var ball_dy: f32 = 3.0;
+
+    SetTargetFPS(TARGET_FPS);
+
+    while !WindowShouldClose() {
+        // --- Eingabe: rechter Schläger (Spieler) ---
+        if IsKeyDown(KEY_W) { right_y = right_y - paddle_speed; }
+        if IsKeyDown(KEY_S) { right_y = right_y + paddle_speed; }
+        if IsKeyPressed(KEY_Q) || IsKeyPressed(KEY_ESCAPE) { break; }
+
+        // Schläger in Grenzen halten
+        if right_y < 0.0 { right_y = 0.0; }
+        if right_y + paddle_h > (SCREEN_HEIGHT as f32) { right_y = (SCREEN_HEIGHT as f32) - paddle_h; }
+
+        // --- KI: linker Schläger folgt dem Ball ---
+        let ai_center = left_y + paddle_h / 2.0;
+        if ball_y < ai_center - 5.0 {
+            left_y = left_y - paddle_speed * 0.8;
+        } else if ball_y > ai_center + 5.0 {
+            left_y = left_y + paddle_speed * 0.8;
         }
-        if right_score >= WIN_SCORE {
-            running = false;
-            show_game_over("Right player (you)");
-            break;
+        if left_y < 0.0 { left_y = 0.0; }
+        if left_y + paddle_h > (SCREEN_HEIGHT as f32) { left_y = (SCREEN_HEIGHT as f32) - paddle_h; }
+
+        // --- Ball bewegen ---
+        ball_x = ball_x + ball_dx;
+        ball_y = ball_y + ball_dy;
+
+        // Oben/unten prallen
+        if ball_y - ball_r <= 0.0 {
+            ball_y = ball_r;
+            ball_dy = -ball_dy;
+        }
+        if ball_y + ball_r >= (SCREEN_HEIGHT as f32) {
+            ball_y = (SCREEN_HEIGHT as f32) - ball_r;
+            ball_dy = -ball_dy;
         }
 
-        // Short pause and read input
-        sleep(0.1);
-        var input: u8[>..] = [];
-        if read_line(input) {
-            process_input(input);
+        // Kollision linker Schläger
+        if ball_x - ball_r <= left_x + paddle_w &&
+           ball_x + ball_r >= left_x &&
+           ball_y + ball_r >= left_y &&
+           ball_y - ball_r <= left_y + paddle_h &&
+           ball_dx < 0.0 {
+            ball_dx = -ball_dx * 1.05;
+            ball_dy = ball_dy + ((ball_y - (left_y + paddle_h / 2.0)) / (paddle_h / 2.0)) * 2.0;
+            ball_x = left_x + paddle_w + ball_r;
+        }
+
+        // Kollision rechter Schläger
+        if ball_x + ball_r >= right_x &&
+           ball_x - ball_r <= right_x + paddle_w &&
+           ball_y + ball_r >= right_y &&
+           ball_y - ball_r <= right_y + paddle_h &&
+           ball_dx > 0.0 {
+            ball_dx = -ball_dx * 1.05;
+            ball_dy = ball_dy + ((ball_y - (right_y + paddle_h / 2.0)) / (paddle_h / 2.0)) * 2.0;
+            ball_x = right_x - ball_r;
+        }
+
+        // Tore
+        if ball_x < 0.0 {
+            right_score = right_score + 1;
+            ball_x = (SCREEN_WIDTH as f32) / 2.0;
+            ball_y = (SCREEN_HEIGHT as f32) / 2.0;
+            ball_dx = 4.0;
+            ball_dy = 3.0;
+        }
+        if ball_x > (SCREEN_WIDTH as f32) {
+            left_score = left_score + 1;
+            ball_x = (SCREEN_WIDTH as f32) / 2.0;
+            ball_y = (SCREEN_HEIGHT as f32) / 2.0;
+            ball_dx = -4.0;
+            ball_dy = -3.0;
+        }
+
+        // --- Rendern ---
+        BeginDrawing();
+        ClearBackground(BLACK);
+
+        // Mittellinie
+        var i: i32 = 0;
+        while i < SCREEN_HEIGHT {
+            DrawLine(SCREEN_WIDTH / 2, i, SCREEN_WIDTH / 2, i + 15, LIGHTGRAY);
+            i = i + 30;
+        }
+
+        // Schläger
+        DrawRectangleRec(Rectangle { left_x, left_y, paddle_w, paddle_h }, WHITE);
+        DrawRectangleRec(Rectangle { right_x, right_y, paddle_w, paddle_h }, WHITE);
+
+        // Ball
+        DrawCircle(ball_x as i32, ball_y as i32, ball_r, WHITE);
+
+        // Punkte
+        DrawText("0", (SCREEN_WIDTH / 2 - 60), 30, 40, WHITE);
+        DrawText("0", (SCREEN_WIDTH / 2 + 20), 30, 40, WHITE);
+
+        EndDrawing();
+
+        // Spielende bei 5 Punkten
+        if left_score >= 5 || right_score >= 5 {
+            break;
         }
     }
+
+    CloseWindow();
 }

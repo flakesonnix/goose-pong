@@ -1,0 +1,4 @@
+// pong.build — C-Seitencode für das Pong-Programm
+// Verlinkt libraylib (muss auf dem System installiert sein).
+
+c_libs = ["raylib"];

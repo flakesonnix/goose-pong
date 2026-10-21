@@ -21,6 +21,10 @@ jobs:
           cmake -B build -S .
           cmake --build build -j
 
+      - name: Typecheck pong.goose (no raylib needed)
+        run: |
+          ./goose-compiler/build/goose check pong.goose
+
       - name: Build and run unit tests
         run: |
           ./goose-compiler/build/goose build test_pong.goose

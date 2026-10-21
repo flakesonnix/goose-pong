@@ -1,46 +1,43 @@
-// Unit test: Pong game
-// Tests core logic: ball movement, collisions, scoring.
+// test_pong.goose — Unit-Test für Pong-Spiel-Logik (vereinfacht)
 
-fn reset_ball_local() -> i64, i64, i64, i64 {
-    return 25, 10, 1, 1;   // ball_x, ball_y, ball_dx, ball_dy
+fn ball_hits_paddle(ball_x: i32, ball_y: i32, ball_r: i32,
+                    paddle_x: i32, paddle_y: i32,
+                    paddle_w: i32, paddle_h: i32) -> bool {
+    if ball_x - ball_r <= paddle_x + paddle_w &&
+       ball_x + ball_r >= paddle_x &&
+       ball_y + ball_r >= paddle_y &&
+       ball_y - ball_r <= paddle_y + paddle_h {
+        return true;
+    }
+    return false;
 }
 
 fn main() {
-    // Test 1: Ball starts in the middle
-    let bx, by, bdx, bdy = reset_ball_local();
-    assert(bx == 25);
-    assert(by == 10);
-    assert(bdx == 1);
-    assert(bdy == 1);
+    // Einfache direkte Prüfung der Bedingungen
+    let bx = 45;
+    let by = 200;
+    let br = 8;
+    let px = 30;
+    let py = 160;
+    let pw = 15;
+    let ph = 80;
 
-    // Test 2: Ball moves right-down
-    let bx2 = bx + bdx;
-    let by2 = by + bdy;
-    assert(bx2 == 26);
-    assert(by2 == 11);
+    let c1 = bx - br <= px + pw;   // 37 <= 45
+    let c2 = bx + br >= px;        // 53 >= 30
+    let c3 = by + br >= py;        // 208 >= 160
+    let c4 = by - br <= py + ph;   // 192 <= 240
 
-    // Test 3: Ball bounces off top wall (y <= 0 -> dy becomes positive)
-    let y_test = 0;
-    let dy_test = -1;
-    let dy_after = if y_test <= 0 { -dy_test } else { dy_test };
-    assert(dy_after == 1);
+    assert(c1);
+    assert(c2);
+    assert(c3);
+    assert(c4);
 
-    // Test 4: Ball bounces off bottom wall (y >= HEIGHT-1 -> dy becomes negative)
-    let y_test2 = 19;
-    let dy_test2 = 1;
-    let dy_after2 = if y_test2 >= 19 { -dy_test2 } else { dy_test2 };
-    assert(dy_after2 == -1);
+    assert(ball_hits_paddle(45, 200, 8, 30, 160, 15, 80));
+    assert(!ball_hits_paddle(10, 200, 8, 30, 160, 15, 80));
+    assert(ball_hits_paddle(763, 200, 8, 755, 160, 15, 80));
+    assert(!ball_hits_paddle(45, 50, 8, 30, 160, 15, 80));
+    assert(!ball_hits_paddle(45, 400, 8, 30, 160, 15, 80));
 
-    // Test 5: Paddle movement stays in bounds
-    let paddle_y = 10;
-    let paddle_h = 5;
-    let height = 20;
-    let new_y = if paddle_y - 1 < 0 { 0 } else { paddle_y - 1 };
-    assert(new_y == 9);
-    let new_y2 = if paddle_y + 1 + paddle_h > height { height - paddle_h } else { paddle_y + 1 };
-    assert(new_y2 == 11);
-
-    // Test 6: Win at 5 points
     assert(5 >= 5);
     assert(4 < 5);
 
