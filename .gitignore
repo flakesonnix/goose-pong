@@ -3,3 +3,4 @@ pong
 test_pong
 /build
 flake.lock
+.#*
