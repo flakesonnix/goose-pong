@@ -21,22 +21,37 @@ Classic Pong game written in Goose with raylib (graphics).
 
 ## Build & Run
 
+### Main game (requires raylib)
+
 ```bash
-goose build pong.goose && ./pong
+# 1. Build the Goose compiler
+git clone https://github.com/aardappel/goose.git
+cd goose && cmake -B build -S . && cmake --build build -j
+
+# 2. Build Pong with raylib
+./build/goose build pong.goose
+
+# 3. Run
+./pong
 ```
 
-Or typecheck without raylib:
+**Requirements:** `raylib` (library + headers) must be installed on your system for building and running the main game. Install it with your package manager, e.g.:
+
+- Debian/Ubuntu: `sudo apt install libraylib-dev`
+- Arch: `sudo pacman -S raylib`
+- macOS: `brew install raylib`
+- Nix: `nix-shell -p raylib`
+
+### Unit tests (no raylib needed)
 
 ```bash
-goose check pong.goose
+./build/goose build test_pong.goose && ./test_pong
 ```
 
-**Requirements:** `raylib` (library + headers) must be installed on your system for building and running.
-
-## Unit Tests
+Or use the Nix flake (builds and runs unit tests only):
 
 ```bash
-goose build test_pong.goose && ./test_pong
+nix build
 ```
 
 ## Files
@@ -47,9 +62,9 @@ goose build test_pong.goose && ./test_pong
 | `test_pong.goose` | Unit tests for collision logic (no raylib needed) |
 | `pong.build` | C build config: `c_libs = ["raylib"]` |
 | `README.md` | This file |
-| `flake.nix` | Nix flake (build/test/devShell) |
+| `flake.nix` | Nix flake (builds and runs unit tests only) |
 | `.github/workflows/ci.yml` | GitHub Actions CI |
 
 ## flake.nix Note
 
-The `flake.nix` uses only `nixpkgs` as input (not `goose`, because `aardappel/goose` does not publish a flake). It provides `build`, `test`, and `devShell` outputs that document how to build and run. You still need to build the Goose compiler manually and have `raylib` installed.
+The `flake.nix` uses `nixpkgs` and `aardappel/goose` as inputs. It builds the Goose compiler from source and runs the unit tests. The main game (`pong.goose`) requires `raylib` to be installed on your system and is built manually as shown above.
