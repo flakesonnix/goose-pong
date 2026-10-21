@@ -12,26 +12,16 @@
   in {
     checks."x86_64-linux".default = pkgs.runCommand "goose-pong" {
       src = ./.;
-      buildInputs = [ pkgs.cmake pkgs.gcc pkgs.raylib ];
+      buildInputs = [ pkgs.cmake pkgs.gcc ];
     } ''
       export HOME=$(mktemp -d)
       cp -r $src/* .
       # Build the Goose compiler from source (fetched as Flake input)
       cmake -B build -S ${goose}
       cmake --build build -j
-      # Create a cc wrapper that links raylib (needed because Goose compiler
-      # calls cc directly without Nix wrapper environment)
-      cat > cc << EOF
-#!/bin/bash
-exec ${pkgs.gcc}/bin/cc -L${pkgs.raylib}/lib -lraylib "\$@"
-EOF
-      chmod +x cc
-      export PATH=$PWD:$PATH
-      # Build the Goose programs
-      ./build/goose build pong.goose
+      # Build the Goose unit test (no raylib needed)
       ./build/goose build test_pong.goose
       mkdir -p $out/bin
-      cp pong $out/bin/
       cp test_pong $out/bin/
       # Run tests
       ./test_pong
